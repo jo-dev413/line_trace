@@ -36,8 +36,8 @@
 
 #define MOTOR_FRONT 1
 #define MOTOR_BACK 2
-#define MOTOR_RIGHT 3
-#define MOTOR_LEFT 4
+#define MOTOR_BRAKE 3
+#define MOTOR_STOP 4
 
 
 volatile int motor_state0;
@@ -50,7 +50,6 @@ volatile int disp_time, key_time, ad_time, pwm_time, control_time;
 
 /* LED関係 */
 unsigned char rightval, leftval;
-
 
 
 /* A/D変換関係 */
@@ -70,10 +69,17 @@ void control_proc(void);
 void int_adi(void);
 int  ad_read(int ch);
 
-void move_back(int motor_ch);
-void move_front(int motor_ch);
-void stop(int motor_ch);
-void brake(int motor_ch);
+void move_back0(void);
+void move_back1(void);
+
+void move_front0(void);
+void move_front1(void);
+
+void stop0(void);
+void stop1(void);
+
+void brake0(void);
+void brake1(void);
 
 int main(void){
   int i;
@@ -255,26 +261,6 @@ void pwm_proc(void)
   /* PWM制御を行う関数                                        */
   /* この関数はタイマ割り込み0の割り込みハンドラから呼び出される */
 {
-
-  /* ここにPWM制御の中身を書く */
-
-/*
-  //LED flash
-  if(pwm_count < redval){
-    P9DR = P9DR &(FLUSH_RED_LED);
-  }
-  else{
-    P9DR = P9DR |REDLEDPOS;
-  }
-
-  if(pwm_count < greenval){
-    P9DR = P9DR &(FLUSH_GREEN_LED);
-  }
-  else{
-    P9DR = P9DR |GREENLEDPOS;
-  }
-  */
-
   //init pwm_count
   if(pwm_count == MAXPWMCOUNT){
     pwm_count = 0;
@@ -282,29 +268,20 @@ void pwm_proc(void)
 
   //move front
   if(leftval < 140 && rightval < 140){
-    move_front(0);  
-    move_front(1);
-
-    motor_state0 = MOTOR_FRONT;
-    motor_state1 = MOTOR_FRONT;
+    move_front0();  
+    move_front1();
   }
 
   //move left 
   else if(leftval < rightval){
-    stop(0);
-    move_front(1);
-
-    motor_state0 = MOTOR_FRONT;
-    motor_state1 = MOTOR_FRONT;
+    stop0();
+    move_front1();
   }
 
   //move right
   else if(leftval > rightval){
-    stop(1);
-    move_front(0);
-
-    motor_state0 = MOTOR_FRONT;
-    motor_state1 = MOTOR_FRONT;
+    stop1();
+    move_front0();
   }
   
   pwm_count++;
@@ -319,44 +296,82 @@ void control_proc(void)
   rightval=ad_read(2);
 }
 
-void move_back(int motor_ch)
+void move_front0(void)
 {
-  if(motor_ch == 0){
-    PBDR = PBDR | 0x02; //0b0000 0010
-    PBDR = PBDR & 0xFE; //0b1111 1110
+  if(motor_state0 == MOTOR_BACK || motor_state0 == MOTOR_BRAKE){
+    motor_state0 = MOTOR_FRONT;
+    stop0();
   }else{
-    PBDR = PBDR | 0x08; //0b0000 1000
-    PBDR = PBDR & 0xFB; //0b1111 1011
-  }
-}
-
-void move_front(int motor_ch)
-{
-  if(motor_ch == 0){
     PBDR = PBDR | 0x01; //0b0000 0001
     PBDR = PBDR & 0xFD; //0b1111 1101
+    motor_state0 = MOTOR_FRONT;
+  }
+}
+void move_front1(void)
+{
+  if(motor_state1 == MOTOR_BACK || motor_state1 == MOTOR_BRAKE){
+    motor_state1 = MOTOR_FRONT;
+    stop1();
   }else{
     PBDR = PBDR | 0x04; //0b0000 0100
     PBDR = PBDR & 0xF7; //0b1111 0111
+    motor_state1 = MOTOR_FRONT;
   }
-
 }
 
-void stop(int motor_ch)
-{
-  if(motor_ch == 0){
-    PBDR = PBDR & 0xFC; //0b1111 1100
+void move_back0(void)
+{ 
+  if(motor_state0 == MOTOR_FRONT || motor_state0 == MOTOR_BRAKE){
+    motor_state0 = MOTOR_BACK;
+    stop0();
   }else{
-    PBDR = PBDR & 0xF3; //0b1111 0011
+    PBDR = PBDR | 0x02; //0b0000 0010
+    PBDR = PBDR & 0xFE; //0b1111 1110
+    motor_state0 = MOTOR_BACK;
   }
 }
 
-void brake(int motor_ch)
+void move_back1(void)
 {
-  if(motor_ch == 0){
+  if(motor_state1 == MOTOR_FRONT || motor_state1 == MOTOR_BRAKE){
+    motor_state1 = MOTOR_BACK;
+    stop1();
+  }else{
+    PBDR = PBDR | 0x08; //0b0000 1000
+    PBDR = PBDR & 0xFB; //0b1111 1011
+    motor_state1 = MOTOR_BACK;
+  }
+}
+
+void stop0(void)
+{
+  PBDR = PBDR & 0xFC; //0b1111 1100
+}
+
+void stop1(void)
+{
+  PBDR = PBDR & 0xF3; //0b1111 0011
+}
+
+void brake0(void)
+{
+  if(motor_state0 == MOTOR_FRONT || motor_state0 == MOTOR_BACK){
+    motor_state0 = MOTOR_BRAKE;
+    stop0();
+  }else{
     PBDR = PBDR | 0x03; //0b0000 0011
+    motor_state0 = MOTOR_BRAKE; 
+  }
+}
+
+void brake1(void)
+{
+  if(motor_state1 == MOTOR_FRONT || motor_state1 == MOTOR_BACK){
+    motor_state1 = MOTOR_BRAKE;
+    stop0();
   }else{
     PBDR = PBDR | 0x0C; //0b0000 1100
+    motor_state1 = MOTOR_BRAKE; 
   }
 }
 
