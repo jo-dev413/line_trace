@@ -368,7 +368,7 @@ void brake1(void)
 {
   if(motor_state1 == MOTOR_FRONT || motor_state1 == MOTOR_BACK){
     motor_state1 = MOTOR_BRAKE;
-    stop0();
+    stop1();
   }else{
     PBDR = PBDR | 0x0C; //0b0000 1100
     motor_state1 = MOTOR_BRAKE; 
